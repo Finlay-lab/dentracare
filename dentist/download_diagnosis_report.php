@@ -46,7 +46,7 @@ $stmt->close();
 
 // Fetch diagnosis records
 $diagnoses = [];
-$stmt = $conn->prepare("SELECT diagnosis, treatment, created_at FROM diagnosis WHERE patient_id = ? ORDER BY created_at DESC");
+$stmt = $conn->prepare("SELECT diagnosis, treatment, created_at FROM diagnoses WHERE patient_id = ? ORDER BY created_at DESC");
 $stmt->bind_param("i", $patient_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -57,30 +57,30 @@ $stmt->close();
 
 // Build report
 $report = "Diagnosis Report for $name ($email)\n";
-$report .= str_repeat('=', 40) . \"\\n\\n\";
-$report .= "Medical History:\\n";
-$report .= ($medical_history ? $medical_history : "No medical history provided.") . \"\\n\\n\";
+$report .= str_repeat('=', 40) . "\n\n";
+$report .= "Medical History:\n";
+$report .= ($medical_history ? $medical_history : "No medical history provided.") . "\n\n";
 
-$report .= "Appointments:\\n";
+$report .= "Appointments:\n";
 if ($appointments) {
     foreach ($appointments as $appt) {
-        $report .= "- Date: " . $appt['appointment_date'] . ", Time: " . $appt['appointment_time'] . ", Status: " . $appt['status'] . \"\\n\";
+        $report .= "- Date: " . $appt['appointment_date'] . ", Time: " . $appt['appointment_time'] . ", Status: " . $appt['status'] . "\n";
     }
 } else {
-    $report .= "No appointments found.\\n";
+    $report .= "No appointments found.\n";
 }
-$report .= \"\\nDiagnosis & Treatment Records:\\n\";
+$report .= "\nDiagnosis & Treatment Records:\n";
 if ($diagnoses) {
     foreach ($diagnoses as $d) {
-        $report .= "Date: " . $d['created_at'] . \"\\nDiagnosis: \" . $d['diagnosis'] . \"\\nTreatment: \" . $d['treatment'] . \"\\n---\\n\";
+        $report .= "Date: " . $d['created_at'] . "\nDiagnosis: " . $d['diagnosis'] . "\nTreatment: " . $d['treatment'] . "\n---\n";
     }
 } else {
-    $report .= "No diagnosis records found.\\n";
+    $report .= "No diagnosis records found.\n";
 }
 
 // Output as downloadable text file
 header('Content-Type: text/plain; charset=utf-8');
-header('Content-Disposition: attachment; filename=\"diagnosis_report.txt\"');
+header('Content-Disposition: attachment; filename="diagnosis_report.txt"');
 echo $report;
 exit();
 ?>

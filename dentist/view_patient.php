@@ -17,19 +17,36 @@ $dentist_id = $_SESSION['dentist_id'];
 $errors = [];
 $success = "";
 
+// Fetch appointments for this patient and dentist
+$patient_appointments = [];
+$stmt = $conn->prepare("SELECT id, appointment_date, appointment_time FROM appointments WHERE patient_id = ? AND dentist_id = ? AND status != 'Cancelled' ORDER BY appointment_date DESC, appointment_time DESC");
+if ($stmt) {
+    $stmt->bind_param("ii", $patient_id, $dentist_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    while ($row = $result->fetch_assoc()) {
+        $patient_appointments[] = $row;
+    }
+    $stmt->close();
+}
+
 // Handle new diagnosis submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $appointment_id = $_POST['appointment_id'] ?? '';
     $diagnosis = trim($_POST["diagnosis"]);
     $treatment = trim($_POST["treatment"]);
-    if (empty($diagnosis)) {
-        $errors[] = "Diagnosis is required.";
+    if (empty($appointment_id) || empty($diagnosis)) {
+        $errors[] = "All fields are required.";
     } else {
-        $stmt = $conn->prepare("INSERT INTO diagnosis (patient_id, dentist_id, diagnosis, treatment) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("iiss", $patient_id, $dentist_id, $diagnosis, $treatment);
+        $stmt = $conn->prepare("INSERT INTO diagnoses (appointment_id, patient_id, dentist_id, diagnosis, treatment, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+        if (!$stmt) {
+            die("Prepare failed (insert diagnosis): " . $conn->error);
+        }
+        $stmt->bind_param("iiiss", $appointment_id, $patient_id, $dentist_id, $diagnosis, $treatment);
         if ($stmt->execute()) {
             $success = "Diagnosis and treatment added successfully!";
         } else {
-            $errors[] = "Failed to add diagnosis.";
+            $errors[] = "Failed to add diagnosis: " . $stmt->error;
         }
         $stmt->close();
     }
@@ -37,6 +54,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 // Fetch patient info
 $stmt = $conn->prepare("SELECT name, email FROM patients WHERE id = ?");
+if (!$stmt) {
+    die("Prepare failed (fetch patient): " . $conn->error);
+}
 $stmt->bind_param("i", $patient_id);
 $stmt->execute();
 $stmt->bind_result($name, $email);
@@ -46,15 +66,21 @@ $stmt->close();
 // Fetch medical history
 $medical_history = "";
 $stmt = $conn->prepare("SELECT details FROM medical_history WHERE patient_id = ?");
+if (!$stmt) {
+    die("Prepare failed (fetch medical history): " . $conn->error);
+}
 $stmt->bind_param("i", $patient_id);
 $stmt->execute();
 $stmt->bind_result($medical_history);
 $stmt->fetch();
 $stmt->close();
 
-// Fetch appointments
+// Fetch appointments for display
 $appointments = [];
 $stmt = $conn->prepare("SELECT appointment_date, appointment_time, status FROM appointments WHERE patient_id = ? ORDER BY appointment_date DESC, appointment_time DESC");
+if (!$stmt) {
+    die("Prepare failed (fetch appointments): " . $conn->error);
+}
 $stmt->bind_param("i", $patient_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -65,7 +91,10 @@ $stmt->close();
 
 // Fetch previous diagnoses
 $diagnoses = [];
-$stmt = $conn->prepare("SELECT diagnosis, treatment, created_at FROM diagnosis WHERE patient_id = ? ORDER BY created_at DESC");
+$stmt = $conn->prepare("SELECT diagnosis, treatment, created_at FROM diagnoses WHERE patient_id = ? ORDER BY created_at DESC");
+if (!$stmt) {
+    die("Prepare failed (fetch diagnoses): " . $conn->error);
+}
 $stmt->bind_param("i", $patient_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -74,7 +103,6 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 ?>
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -214,6 +242,15 @@ $stmt->close();
         }
         ?>
         <form method="POST" action="">
+            <label>Appointment:</label>
+            <select name="appointment_id" required>
+                <option value="">-- Select Appointment --</option>
+                <?php foreach ($patient_appointments as $appt): ?>
+                    <option value="<?php echo $appt['id']; ?>">
+                        <?php echo htmlspecialchars($appt['appointment_date'] . ' ' . $appt['appointment_time']); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
             <label>Diagnosis:</label><br>
             <textarea name="diagnosis" rows="3" required></textarea><br>
             <label>Treatment:</label><br>

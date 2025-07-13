@@ -27,6 +27,9 @@ if (!isset($_SESSION['dentist_id'])) {
     <link rel="stylesheet" href="../patient/assets/css/style.css">
     <link rel="stylesheet" href="../patient/assets/css/logo.css">
     
+    <!-- FullCalendar CSS -->
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
+    
     <!-- Custom styling for dentist dashboard -->
     <style>
         /* ==========================================
@@ -90,6 +93,13 @@ if (!isset($_SESSION['dentist_id'])) {
             margin-bottom: 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
+        #calendar {
+            max-width: 900px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+        }
     </style>
 </head>
 <body>
@@ -128,9 +138,25 @@ if (!isset($_SESSION['dentist_id'])) {
         
         <!-- Main content area -->
         <main>
-            <h2>Welcome, Dr. <?php echo htmlspecialchars($_SESSION['dentist_name']); ?>!</h2>
-            <p>This is your dentist dashboard.</p>
+            <h2>Welcome, <?php echo htmlspecialchars($_SESSION['dentist_name']); ?>!</h2>
+            <h3>Your Appointments</h3>
+            <div id="calendar"></div>
         </main>
     </div>
+    <!-- FullCalendar JS -->
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var calendarEl = document.getElementById('calendar');
+      var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        events: 'fetch_appointments.php',
+        eventClick: function(info) {
+          alert('Appointment ID: ' + info.event.id + '\nPatient: ' + info.event.title + '\nStatus: ' + info.event.extendedProps.status);
+        }
+      });
+      calendar.render();
+    });
+    </script>
 </body>
 </html>

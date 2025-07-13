@@ -41,6 +41,8 @@ if ($stmt) {
     <title>Patient Dashboard</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/logo.css">
+    <!-- FullCalendar CSS -->
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
     <style>
         .dashboard-banner {
             width: 100%;
@@ -86,6 +88,13 @@ if ($stmt) {
             margin-bottom: 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
+        #calendar {
+            max-width: 900px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+        }
     </style>
 </head>
 <body>
@@ -115,21 +124,87 @@ if ($stmt) {
         <main>
             <h2>Welcome, <?php echo htmlspecialchars($patient_name); ?>!</h2>
             <h3>Your Appointments</h3>
-            <?php if (empty($appointments)): ?>
-                <p>No appointments found.</p>
-            <?php else: ?>
-                <table>
-                    <tr><th>Date</th><th>Status</th></tr>
-                    <?php foreach ($appointments as $appt): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($appt['appointment_date']); ?></td>
-                            <td><?php echo htmlspecialchars($appt['status']); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </table>
-            <?php endif; ?>
+            <div id="calendar"></div>
+            <!-- Booking Modal -->
+            <div id="booking-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.4); z-index:1000;">
+              <div style="background:#fff; max-width:400px; margin:100px auto; padding:24px; border-radius:10px; position:relative;">
+                <button id="close-modal" style="position:absolute; top:8px; right:12px;">&times;</button>
+                <h3>Book Appointment</h3>
+                <form id="booking-form">
+                  <input type="hidden" id="selected-date" name="date">
+                  <label for="dentist">Dentist:</label>
+                  <select id="dentist" name="dentist" required>
+                    <?php
+                    $dentists = $conn->query("SELECT id, name FROM dentists ORDER BY name ASC");
+                    while ($d = $dentists->fetch_assoc()) {
+                      echo '<option value="' . $d['id'] . '">' . htmlspecialchars($d['name']) . '</option>';
+                    }
+                    ?>
+                  </select><br><br>
+                  <label for="time">Time Slot:</label>
+                  <select id="time" name="time" required>
+                    <option value="09:00:00">09:00 AM</option>
+                    <option value="10:00:00">10:00 AM</option>
+                    <option value="11:00:00">11:00 AM</option>
+                    <option value="12:00:00">12:00 PM</option>
+                    <option value="14:00:00">02:00 PM</option>
+                    <option value="15:00:00">03:00 PM</option>
+                    <option value="16:00:00">04:00 PM</option>
+                  </select><br><br>
+                  <label for="reason">Reason:</label>
+                  <input type="text" id="reason" name="reason" required><br><br>
+                  <button type="submit">Book</button>
+                </form>
+              </div>
+            </div>
             <p><a href="book_appointment.php">Book Appointment</a> | <a href="medical_history.php">View Medical History</a> | <a href="edit_profile.php">Edit Profile</a></p>
         </main>
     </div>
+    <!-- FullCalendar JS -->
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var calendarEl = document.getElementById('calendar');
+      var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        events: 'fetch_appointments.php',
+        selectable: true,
+        select: function(info) {
+          var dateStr = info.startStr;
+          document.getElementById('selected-date').value = dateStr;
+          document.getElementById('booking-modal').style.display = 'block';
+        },
+        eventClick: function(info) {
+          alert('Appointment ID: ' + info.event.id + '\nStatus: ' + info.event.extendedProps.status);
+        }
+      });
+      calendar.render();
+
+      // Handle booking form submission
+      document.getElementById('booking-form').onsubmit = function(e) {
+        e.preventDefault();
+        var date = document.getElementById('selected-date').value;
+        var reason = document.getElementById('reason').value;
+        var dentist = document.getElementById('dentist').value;
+        var time = document.getElementById('time').value;
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'book_appointment_ajax.php', true);
+        xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+        xhr.onload = function() {
+          if (xhr.status == 200) {
+            alert(xhr.responseText);
+            document.getElementById('booking-modal').style.display = 'none';
+            calendar.refetchEvents();
+          }
+        };
+        xhr.send('date=' + encodeURIComponent(date) + '&time=' + encodeURIComponent(time) + '&reason=' + encodeURIComponent(reason) + '&dentist=' + encodeURIComponent(dentist));
+      };
+
+      // Close modal
+      document.getElementById('close-modal').onclick = function() {
+        document.getElementById('booking-modal').style.display = 'none';
+      };
+    });
+    </script>
 </body>
 </html>

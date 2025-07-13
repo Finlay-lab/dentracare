@@ -8,8 +8,11 @@ if (!isset($_SESSION['admin_id'])) {
 }
 
 // Fetch all admins for the filter dropdown
-$admins_result = $conn->query("SELECT id, name FROM admins ORDER BY name ASC");
 $admins = [];
+$admins_result = $conn->query("SELECT id, name FROM admins ORDER BY name ASC");
+if (!$admins_result) {
+    die("Failed to fetch admins: " . $conn->error);
+}
 while ($row = $admins_result->fetch_assoc()) {
     $admins[] = $row;
 }
@@ -42,23 +45,30 @@ if ($action) {
 }
 
 $where_sql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-$sql = "SELECT activity_logs.*, admins.name AS admin_name FROM activity_logs LEFT JOIN admins ON activity_logs.admin_id = admins.id $where_sql ORDER BY created_at DESC";
+$sql = "SELECT activity_logs.*, admins.name AS admin_name FROM activity_logs LEFT JOIN admins ON activity_logs.admin_id = admins.id $where_sql ORDER BY activity_logs.created_at DESC";
 $stmt = $conn->prepare($sql);
-
+if (!$stmt) {
+    die("Prepare failed: " . $conn->error);
+}
 if ($params) {
     $stmt->bind_param($types, ...$params);
 }
 $stmt->execute();
 $result = $stmt->get_result();
+if (!$result) {
+    die("Failed to fetch activity logs: " . $conn->error);
+}
 
 // Fetch unique actions for the action filter
-$actions_result = $conn->query("SELECT DISTINCT action FROM activity_logs ORDER BY action ASC");
 $actions = [];
+$actions_result = $conn->query("SELECT DISTINCT action FROM activity_logs ORDER BY action ASC");
+if (!$actions_result) {
+    die("Failed to fetch actions: " . $conn->error);
+}
 while ($row = $actions_result->fetch_assoc()) {
     $actions[] = $row['action'];
 }
 ?>
-
 <!DOCTYPE html>
 <html>
 <head>

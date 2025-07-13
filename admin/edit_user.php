@@ -18,7 +18,7 @@ if (!isset($_SESSION['admin_id'])) {
     exit();
 }
 
-$role = $_GET['role'] ?? '';
+$role = $_GET['role'] ?? $_GET['type'] ?? '';
 $id = intval($_GET['id'] ?? 0);
 $errors = [];
 $success = "";

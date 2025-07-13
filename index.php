@@ -289,5 +289,10 @@
             </div>
         </div>
     </div>
+    <footer>
+      <div style="text-align:center; margin-top:40px; padding:20px 0; background:#f5f5f5; border-top:1px solid #e0e0e0;">
+        <strong>Contact Us:</strong> dentracare@example.com | +123 456 7890
+      </div>
+    </footer>
 </body>
 </html>

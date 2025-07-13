@@ -12,23 +12,31 @@ $success = '';
 $dentist_id = $_SESSION['dentist_id'];
 
 // Fetch all patients
-$patients = $conn->query("SELECT id, name FROM patients ORDER BY name ASC");
+$patients = [];
+$patients_result = $conn->query("SELECT id, name FROM patients ORDER BY name ASC");
+while ($row = $patients_result->fetch_assoc()) {
+    $patients[] = $row;
+}
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $patient_id = $_POST['patient_id'] ?? '';
     $appointment_id = $_POST['appointment_id'] ?? '';
     $diagnosis = trim($_POST['diagnosis'] ?? '');
+    $treatment = trim($_POST['treatment'] ?? '');
 
     if (empty($patient_id) || empty($appointment_id) || empty($diagnosis)) {
         $errors[] = "All fields are required.";
     } else {
-        $stmt = $conn->prepare("INSERT INTO diagnoses (appointment_id, dentist_id, patient_id, diagnosis, created_at) VALUES (?, ?, ?, ?, NOW())");
-        $stmt->bind_param("iiis", $appointment_id, $dentist_id, $patient_id, $diagnosis);
+        $stmt = $conn->prepare("INSERT INTO diagnoses (appointment_id, dentist_id, patient_id, diagnosis, treatment, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+        if (!$stmt) {
+            die("Prepare failed: " . $conn->error);
+        }
+        $stmt->bind_param("iiiss", $appointment_id, $dentist_id, $patient_id, $diagnosis, $treatment);
         if ($stmt->execute()) {
-            $success = "Diagnosis added successfully.";
+            $success = "Diagnosis and treatment added successfully!";
         } else {
-            $errors[] = "Failed to add diagnosis.";
+            $errors[] = "Failed to add diagnosis: " . $stmt->error;
         }
         $stmt->close();
     }
@@ -36,16 +44,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Fetch appointments for selected patient (AJAX or after POST)
 $patient_appointments = [];
-if (!empty($_POST['patient_id']) || !empty($_GET['patient_id'])) {
-    $selected_patient_id = $_POST['patient_id'] ?? $_GET['patient_id'];
+$selected_patient_id = $_POST['patient_id'] ?? $_GET['patient_id'] ?? '';
+if (!empty($selected_patient_id)) {
     $appt_stmt = $conn->prepare("SELECT id, appointment_date, appointment_time FROM appointments WHERE patient_id = ? AND dentist_id = ? AND status != 'Cancelled' ORDER BY appointment_date DESC, appointment_time DESC");
-    $appt_stmt->bind_param("ii", $selected_patient_id, $dentist_id);
-    $appt_stmt->execute();
-    $appt_result = $appt_stmt->get_result();
-    while ($row = $appt_result->fetch_assoc()) {
-        $patient_appointments[] = $row;
+    if ($appt_stmt) {
+        $appt_stmt->bind_param("ii", $selected_patient_id, $dentist_id);
+        $appt_stmt->execute();
+        $appt_result = $appt_stmt->get_result();
+        while ($row = $appt_result->fetch_assoc()) {
+            $patient_appointments[] = $row;
+        }
+        $appt_stmt->close();
     }
-    $appt_stmt->close();
 }
 ?>
 <!DOCTYPE html>
@@ -96,7 +106,7 @@ if (!empty($_POST['patient_id']) || !empty($_GET['patient_id'])) {
             <select name="patient_id" id="patient_id" onchange="reloadWithPatient()" required>
                 <option value="">-- Select Patient --</option>
                 <?php foreach ($patients as $p): ?>
-                    <option value="<?php echo $p['id']; ?>" <?php if ((isset($selected_patient_id) && $selected_patient_id == $p['id']) || (!empty($_POST['patient_id']) && $_POST['patient_id'] == $p['id'])) echo 'selected'; ?>><?php echo htmlspecialchars($p['name']); ?></option>
+                    <option value="<?php echo $p['id']; ?>" <?php if ($selected_patient_id == $p['id']) echo 'selected'; ?>><?php echo htmlspecialchars($p['name']); ?></option>
                 <?php endforeach; ?>
             </select>
             <label>Appointment:</label>
@@ -110,9 +120,11 @@ if (!empty($_POST['patient_id']) || !empty($_GET['patient_id'])) {
             </select>
             <label>Diagnosis:</label>
             <textarea name="diagnosis" required></textarea>
+            <label>Treatment:</label>
+            <textarea name="treatment"></textarea>
             <button type="submit">Add Diagnosis</button>
         </form>
         <p style="margin-top:18px;"><a href="dashboard.php">Back to Dashboard</a></p>
     </div>
 </body>
-</html> 
+</html>
